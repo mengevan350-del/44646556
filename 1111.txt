@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>今日吃什麼？- 三餐決策輪盤</title>
+  <!-- 慶祝彩帶特效庫 -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #f8fafc;
+      --card-bg: #ffffff;
+      --text-main: #1e293b;
+      --text-muted: #64748b;
+      --primary: #3b82f6;
+      --primary-hover: #2563eb;
+      --accent: #f59e0b;
+      --danger: #ef4444;
+      --border-color: #e2e8f0;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      background: var(--card-bg);
+      width: 100%;
+      max-width: 900px;
+      border-radius: var(--radius);
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+      padding: 30px;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 30px;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        grid-template-columns: 1fr;
+        padding: 20px;
+      }
+    }
+
+    header {
+      grid-column: 1 / -1;
+      text-align: center;
+      margin-bottom: 10px;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    /* 模式切換按鈕 */
+    .mode-selector {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      background: #f1f5f9;
+      padding: 6px;
+      border-radius: 10px;
+      flex-wrap: wrap;
+    }
+
+    .mode-btn {
+      flex: 1;
+      min-width: 100px;
+      padding: 10px 16px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.95rem;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .mode-btn.active {
+      background: var(--card-bg);
+      color: var(--primary);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    }
+
+    /* 輪盤區域 */
+    .wheel-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .wheel-container {
+      position: relative;
+      width: 320px;
+      height: 320px;
+      margin: 20px 0;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+    }
+
+    .pointer {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 14px solid transparent;
+      border-right: 14px solid transparent;
+      border-top: 24px solid var(--danger);
+      z-index: 10;
+      filter: drop-shadow(0 2px 3px rgba(0,0,0,0.2));
+    }
+
+    .spin-btn {
+      width: 100%;
+      max-width: 240px;
+      padding: 14px 24px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+      box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+    }
+
+    .spin-btn:hover {
+      background: var(--primary-hover);
+    }
+
+    .spin-btn:disabled {
+      background: #cbd5e1;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* 抽獎結果顯示 */
+    .result-display {
+      margin-top: 15px;
+      padding: 16px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: var(--radius);
+      width: 100%;
+      text-align: center;
+      min-height: 80px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .result-title {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .result-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    /* 選項管理側邊欄 */
+    .list-section {
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid var(--border-color);
+      padding-left: 25px;
+    }
+
+    @media (max-width: 768px) {
+      .list-section {
+        border-left: none;
+        border-top: 1px solid var(--border-color);
+        padding-left: 0;
+        padding-top: 25px;
+      }
+    }
+
+    .list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+    }
+
+    .list-header h2 {
+      font-size: 1.1rem;
+      font-weight: 600;
+    }
+
+    .reset-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .reset-btn:hover {
+      color: var(--danger);
+    }
+
+    .add-form {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .add-input {
+      flex: 1;
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .add-input:focus {
+      border-color: var(--primary);
+    }
+
+    .add-btn {
+      padding: 10px 16px;
+      background: var(--text-main);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .add-btn:hover {
+      opacity: 0.9;
+    }
+
+    .item-list {
+      list-style: none;
+      max-height: 280px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .item-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .item-list::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 3px;
+    }
+
+    .item-tag {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 0.9rem;
+    }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 1.1rem;
+      line-height: 1;
+    }
+
+    .delete-btn:hover {
+      color: var(--danger);
+    }
+
+    .combo-info {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      background: #f1f5f9;
+      padding: 12px;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <header>
+      <h1>今日吃什麼？</h1>
+      <p class="subtitle">讓輪盤幫你輕鬆搞定每日用餐抉擇</p>
+    </header>
+
+    <!-- 模式切換 -->
+    <div class="mode-selector">
+      <button class="mode-btn active" onclick="switchMode('breakfast')">早餐</button>
+      <button class="mode-btn" onclick="switchMode('lunch')">午餐</button>
+      <button class="mode-btn" onclick="switchMode('dinner')">晚餐</button>
+      <button class="mode-btn" onclick="switchMode('combo')">🍱 一天套餐</button>
+    </div>
+
+    <!-- 輪盤主體 -->
+    <div class="wheel-section">
+      <div class="wheel-container">
+        <div class="pointer"></div>
+        <canvas id="wheelCanvas" width="320" height="320"></canvas>
+      </div>
+
+      <button id="spinBtn" class="spin-btn" onclick="startSpin()">開始決定！</button>
+
+      <div class="result-display">
+        <div class="result-title" id="resultTitle">按下按鈕開始旋轉</div>
+        <div class="result-value" id="resultValue">？</div>
+      </div>
+    </div>
+
+    <!-- 右側選項管理 -->
+    <div class="list-section">
+      <div class="list-header">
+        <h2 id="listTitle">早餐清單</h2>
+        <button class="reset-btn" onclick="resetCurrentList()">恢復預設</button>
+      </div>
+
+      <!-- 新增品項表單 (Combo 模式隱藏) -->
+      <div class="add-form" id="addForm">
+        <input type="text" id="newItemInput" class="add-input" placeholder="新增美食品項..." onkeypress="handleKeyPress(event)">
+        <button class="add-btn" onclick="addItem()">新增</button>
+      </div>
+
+      <!-- 品項列表 (Combo 模式隱藏) -->
+      <ul class="item-list" id="itemList"></ul>
+
+      <!-- Combo 模式提示說明 -->
+      <div class="combo-info" id="comboInfo" style="display: none;">
+        <strong>💡 一天套餐模式：</strong><br>
+        點擊「開始決定」後，輪盤會自動為您抽取早餐、午餐與晚餐。<br><br>
+        若抽取過程中出現重複品項，系統將自動重抽，確保三餐吃到不一樣的美食！
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 預設常見品項 (含在地美食與超商)
+    const defaultData = {
+      breakfast: ['蛋餅', '豬肉蛋吐司', '飯糰', '燒餅油條', '7-11 飯糰', '全家 匠吐司', '鐵板麵', '蘿蔔糕', '燕麥麥片', '地瓜+無糖豆漿'],
+      lunch: ['排骨便當', '雞腿飯', '牛肉麵', '水餃', '7-11 滷肉飯', '全家 涼麵', '乾麵加湯', '健康餐盒', '火鍋', '義大利麵'],
+      dinner: ['滷味', '鹽酥雞', '迴轉壽司', '日式拉麵', '燒肉丼飯', '7-11 關東煮', '小火鍋', '鐵板燒', '麻辣燙', '鹹水雞']
+    };
+
+    // 色彩盤 (簡約柔和風)
+    const colors = [
+      '#bfdbfe', '#93c5fd', '#60a5fa', '#fef08a', 
+      '#fde047', '#fed7aa', '#fbcfe8', '#a7f3d0'
+    ];
+
+    let currentMode = 'breakfast';
+    let foodLists = {};
+    let isSpinning = false;
+    let currentRotation = 0;
+
+    const canvas = document.getElementById('wheelCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // 1. 初始化資料 (讀取 LocalStorage 或預設值)
+    function initData() {
+      const saved = localStorage.getItem('food_wheel_data');
+      if (saved) {
+        try {
+          foodLists = JSON.parse(saved);
+        } catch(e) {
+          foodLists = JSON.parse(JSON.stringify(defaultData));
+        }
+      } else {
+        foodLists = JSON.parse(JSON.stringify(defaultData));
+      }
+    }
+
+    function saveData() {
+      localStorage.setItem('food_wheel_data', JSON.stringify(foodLists));
+    }
+
+    // 2. 切換模式
+    function switchMode(mode) {
+      if (isSpinning) return;
+      currentMode = mode;
+
+      // 更新按鈕樣式
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      event.target.classList.add('active');
+
+      // 更新介面顯示
+      const addForm = document.getElementById('addForm');
+      const itemList = document.getElementById('itemList');
+      const comboInfo = document.getElementById('comboInfo');
+      const listTitle = document.getElementById('listTitle');
+
+      if (mode === 'combo') {
+        listTitle.innerText = '套餐規則';
+        addForm.style.display = 'none';
+        itemList.style.display = 'none';
+        comboInfo.style.display = 'block';
+        document.getElementById('resultTitle').innerText = '準備好了嗎？';
+        document.getElementById('resultValue').innerText = '點擊開始抽一日套餐';
+      } else {
+        const titles = { breakfast: '早餐清單', lunch: '午餐清單', dinner: '晚餐清單' };
+        listTitle.innerText = titles[mode];
+        addForm.style.display = 'flex';
+        itemList.style.display = 'block';
+        comboInfo.style.display = 'none';
+        document.getElementById('resultTitle').innerText = '按下按鈕開始旋轉';
+        document.getElementById('resultValue').innerText = '？';
+        renderList();
+      }
+
+      drawWheel();
+    }
+
+    // 3. 繪製輪盤
+    function drawWheel() {
+      const items = currentMode === 'combo' ? ['早', '午', '晚'] : foodLists[currentMode];
+      const numItems = items.length;
+      const radius = canvas.width / 2;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (numItems === 0) {
+        ctx.beginPath();
+        ctx.arc(radius, radius, radius, 0, Math.PI * 2);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.fill();
+        ctx.fillStyle = '#64748b';
+        ctx.font = '16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('請先新增品項', radius, radius);
+        return;
+      }
+
+      const arc = (Math.PI * 2) / numItems;
+
+      for (let i = 0; i < numItems; i++) {
+        const angle = i * arc;
+        
+        // 畫扇形
+        ctx.beginPath();
+        ctx.arc(radius, radius, radius, angle, angle + arc);
+        ctx.lineTo(radius, radius);
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 畫文字
+        ctx.save();
+        ctx.translate(radius, radius);
+        ctx.rotate(angle + arc / 2);
+        ctx.fillStyle = '#1e293b';
+        ctx.font = '500 14px sans-serif';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        
+        // 文字截斷處理
+        let text = items[i];
+        if (text.length > 8) text = text.substring(0, 7) + '...';
+        ctx.fillText(text, radius - 20, 0);
+        ctx.restore();
+      }
+    }
+
+    // 4. 加密級高隨機度隨機抽取函數
+    function getRandomIndex(max) {
+      const array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      return array[0] % max;
+    }
+
+    // 5. 開始轉動
+    function startSpin() {
+      if (isSpinning) return;
+
+      if (currentMode === 'combo') {
+        spinCombo();
+        return;
+      }
+
+      const items = foodLists[currentMode];
+      if (!items || items.length === 0) {
+        alert('清單中沒有品項，請先新增！');
+        return;
+      }
+
+      isSpinning = true;
+      document.getElementById('spinBtn').disabled = true;
+      document.getElementById('resultTitle').innerText = '交給命運決定中...';
+      document.getElementById('resultValue').innerText = '🌀';
+
+      const selectedIndex = getRandomIndex(items.length);
+      const numItems = items.length;
+      const arc = (Math.PI * 2) / numItems;
+
+      // 計算目標角度 (指針在頂部 270度 / 1.5PI 位置)
+      const targetAngle = (3 * Math.PI / 2) - (selectedIndex * arc + arc / 2);
+      const extraRounds = (Math.floor(Math.random() * 3) + 5) * Math.PI * 2; // 轉 5~7 圈
+      const totalRotation = currentRotation + extraRounds + (targetAngle - (currentRotation % (Math.PI * 2)));
+
+      const duration = 4000; // 4 秒
+      const start = performance.now();
+      const initialRotation = currentRotation;
+
+      function animate(time) {
+        let elapsed = time - start;
+        let progress = Math.min(elapsed / duration, 1);
+        
+        // Ease-out 減速效果
+        let easeOut = 1 - Math.pow(1 - progress, 3);
+        currentRotation = initialRotation + (totalRotation - initialRotation) * easeOut;
+
+        canvas.style.transform = `rotate(${currentRotation}rad)`;
+
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          isSpinning = false;
+          document.getElementById('spinBtn').disabled = false;
+          const result = items[selectedIndex];
+          document.getElementById('resultTitle').innerText = '今天吃這個！';
+          document.getElementById('resultValue').innerText = result;
+          
+          // 彩帶效果
+          confetti({ particleCount: 60, spread: 60, origin: { y: 0.7 } });
+        }
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    // 6. 套餐模式專用抽獎邏輯 (防止三餐重複)
+    function spinCombo() {
+      isSpinning = true;
+      document.getElementById('spinBtn').disabled = true;
+      document.getElementById('resultTitle').innerText = '正在配對完美的精選三餐...';
+      document.getElementById('resultValue').innerText = '🎲';
+
+      let bList = foodLists.breakfast;
+      let lList = foodLists.lunch;
+      let dList = foodLists.dinner;
+
+      if (bList.length === 0 || lList.length === 0 || dList.length === 0) {
+        alert('請確保早餐、午餐、晚餐清單中都至少有一個品項！');
+        isSpinning = false;
+        document.getElementById('spinBtn').disabled = false;
+        return;
+      }
+
+      // 自動重抽機制：直到三個品項都不相同
+      let bRes, lRes, dRes;
+      let attempts = 0;
+      do {
+        bRes = bList[getRandomIndex(bList.length)];
+        lRes = lList[getRandomIndex(lList.length)];
+        dRes = dList[getRandomIndex(dList.length)];
+        attempts++;
+      } while ((bRes === lRes || lRes === dRes || bRes === dRes) && attempts < 100);
+
+      // 快速旋轉動畫效果
+      let spins = 0;
+      const timer = setInterval(() => {
+        currentRotation += 0.5;
+        canvas.style.transform = `rotate(${currentRotation}rad)`;
+        spins++;
+        if (spins > 30) {
+          clearInterval(timer);
+          isSpinning = false;
+          document.getElementById('spinBtn').disabled = false;
+          document.getElementById('resultTitle').innerText = '✨ 今日精選套餐 ✨';
+          document.getElementById('resultValue').innerHTML = `
+            <div style="font-size: 1rem; text-align: left; margin-top: 5px; line-height: 1.8;">
+              🍳 <b>早餐：</b>${bRes}<br>
+              🍱 <b>午餐：</b>${lRes}<br>
+              🍜 <b>晚餐：</b>${dRes}
+            </div>
+          `;
+          confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 } });
+        }
+      }, 50);
+    }
+
+    // 7. 管理品項列表 UI
+    function renderList() {
+      const itemList = document.getElementById('itemList');
+      itemList.innerHTML = '';
+      const items = foodLists[currentMode] || [];
+
+      items.forEach((item, index) => {
+        const li = document.createElement('li');
+        li.className = 'item-tag';
+        li.innerHTML = `
+          <span>${item}</span>
+          <button class="delete-btn" onclick="deleteItem(${index})">✕</button>
+        `;
+        itemList.appendChild(li);
+      });
+    }
+
+    function addItem() {
+      const input = document.getElementById('newItemInput');
+      const val = input.value.trim();
+      if (!val) return;
+
+      foodLists[currentMode].push(val);
+      saveData();
+      renderList();
+      drawWheel();
+      input.value = '';
+    }
+
+    function deleteItem(index) {
+      foodLists[currentMode].splice(index, 1);
+      saveData();
+      renderList();
+      drawWheel();
+    }
+
+    function handleKeyPress(e) {
+      if (e.key === 'Enter') addItem();
+    }
+
+    function resetCurrentList() {
+      if (currentMode === 'combo') return;
+      if (confirm(`確定要將${document.getElementById('listTitle').innerText}恢復為預設嗎？`)) {
+        foodLists[currentMode] = [...defaultData[currentMode]];
+        saveData();
+        renderList();
+        drawWheel();
+      }
+    }
+
+    // 8. 頁面載入初始化
+    initData();
+    renderList();
+    drawWheel();
+  </script>
+</body>
+</html>
