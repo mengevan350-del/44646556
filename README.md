@@ -1,6 +1,5 @@
 # 今天要吃啥
 可以隨機幫你想要吃啥
-<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
